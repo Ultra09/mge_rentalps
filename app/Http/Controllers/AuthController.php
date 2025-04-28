@@ -18,52 +18,62 @@ class AuthController extends Controller
         ]);
 
         // Cari user berdasarkan username, email, atau phone
-        $user = DB::table('users')
-            ->where('username', $request->identity)
-            ->orWhere('email', $request->identity)
-            ->orWhere('phone', $request->identity)
-            ->first();
+        $user = User::where('username', $request->identity)
+                    ->orWhere('email', $request->identity)
+                    ->orWhere('phone', $request->identity)
+                    ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Username/email/phone atau password salah!'
+                'message' => 'Username/email/phone atau password salah!',
             ], 401);
         }
 
-        // Buat token baru
-        $token = app('auth')->login((array)$user);
+        // Generate Token
+        $token = $user->createToken('mge_rentalps_token')->plainTextToken;
 
         return response()->json([
             'status' => 'success',
             'message' => 'Login berhasil!',
-            'token' => $token
+            'token' => $token,
+            'user' => $user
         ]);
     }
 
     public function register(Request $request)
     {
         $request->validate([
-            'username' => 'required|unique:users,username',
-            'email' => 'required|email|unique:users,email',
-            'phone' => 'required|unique:users,phone',
-            'password' => 'required|min:6',
+            'name' => 'required|string|max:255',
+            'username' => 'required|string|max:255|unique:users',
+            'email' => 'required|string|email|max:255|unique:users',
+            'phone' => 'required|string|max:20|unique:users',
+            'password' => 'required|string|min:8',
         ]);
-    
-        $user = DB::table('users')->insert([
-            'username' => $request->username,
+
+        $user = User::create([
             'name' => $request->name,
+            'username' => $request->username,
             'email' => $request->email,
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
-            'role' => 'user', // Default role saat daftar
-            'created_at' => now(),
-            'updated_at' => now(),
+            'role' => 'user',
         ]);
-    
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Registrasi berhasil!',
+            'message' => 'User berhasil register!',
+            'user' => $user
+        ]);
+    }
+    public function logout(Request $request)
+    {
+        // Hapus token yang lagi dipakai
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Logout berhasil!'
         ]);
     }
 }
